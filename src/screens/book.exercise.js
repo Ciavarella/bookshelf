@@ -6,13 +6,12 @@ import debounceFn from 'debounce-fn'
 import {FaRegCalendarAlt} from 'react-icons/fa'
 import Tooltip from '@reach/tooltip'
 import {useParams} from 'react-router-dom'
-import {useQuery, useMutation, queryCache} from 'react-query'
-import {client} from 'utils/api-client'
+import { useUpdateListItem, useListItem } from 'utils/list-items'
 import { useBook } from 'utils/books'
 import {formatDate} from 'utils/misc'
 import * as mq from 'styles/media-queries'
 import * as colors from 'styles/colors'
-import {Textarea} from 'components/lib'
+import {Textarea, ErrorMessage} from 'components/lib'
 import {Rating} from 'components/rating'
 import {StatusButtons} from 'components/status-buttons'
 
@@ -20,12 +19,7 @@ function BookScreen({user}) {
   const { bookId } = useParams()
   const book = useBook(bookId, user)
 
-  const { data: listItems } = useQuery({
-    queryKey: 'list-items',
-    queryFn: () => client('list-items', {token: user.token}).then(data => data.listItems)
-  })
-
-  const listItem = listItems?.find(li => li.bookId === book.id) ?? null
+  const listItem = useListItem(user, bookId)
   const {title, author, coverImageUrl, publisher, synopsis} = book
 
   return (
@@ -108,10 +102,7 @@ function ListItemTimeframe({listItem}) {
 }
 
 function NotesTextarea({listItem, user}) {
-  const [mutate] = useMutation(
-    (updates) => client(`list-items/${updates.id}`, {method: 'PUT', data: updates, token: user.token}),
-    {onSettled: () => queryCache.invalidateQueries('list-items')}
-  )
+  const [mutate, {error, isError}] = useUpdateListItem(user)
   const debouncedMutate = React.useMemo(() => debounceFn(mutate, {wait: 300}), [
     mutate,
   ])
@@ -135,6 +126,7 @@ function NotesTextarea({listItem, user}) {
         >
           Notes
         </label>
+        {isError ? <ErrorMessage error={error} variant="inline" css={{marginLeft: 6, fontSize: '0.7em'}} /> : null}
       </div>
       <Textarea
         id="notes"
